@@ -33,13 +33,14 @@ def build_mapper(mode: str):
 
 def cmd_profile(args) -> int:
     text = Path(args.file).read_text(encoding="utf-8").strip()
+    if not text:
+        print(f"[error] {args.file} 是空文本", file=sys.stderr)
+        return 1
     if len(text) < 30:
         print("[warn] 文本过短（<30 字），画像置信度会很低", file=sys.stderr)
 
     chains = load_factor_chains()
     scorer = FactorScorer(rounds=args.rounds)
-    if scorer.simulated:
-        print("[warn] 未检测到 DEEPSEEK_API_KEY，使用模拟模式（结果仅供流程验证）", file=sys.stderr)
 
     print(f"[profile] 分析文本 {len(text)} 字，共 {len(all_factor_chains(chains))} 个因子 × {args.rounds} 轮")
     results = scorer.score_text(chains, text, shuffle=not args.no_shuffle)
@@ -74,6 +75,9 @@ def cmd_profile(args) -> int:
 
 def cmd_spi(args) -> int:
     text = Path(args.file).read_text(encoding="utf-8").strip()
+    if not text:
+        print(f"[error] {args.file} 是空文本", file=sys.stderr)
+        return 1
     mapper = build_mapper(args.mode)
     try:
         mapper.prepare(None)
@@ -82,7 +86,7 @@ def cmd_spi(args) -> int:
         print(f"[error] SPI 映射失败: {e}", file=sys.stderr)
         return 1
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 3 if result.get("failed") else 0
 
 
 def cmd_eval(args) -> int:
@@ -90,8 +94,6 @@ def cmd_eval(args) -> int:
     out_dir = Path(args.out) if args.out else (PROJECT_ROOT / "data" / "results")
     chains = load_factor_chains()
     scorer = FactorScorer(rounds=args.rounds)
-    if scorer.simulated:
-        print("[warn] 未检测到 DEEPSEEK_API_KEY，评估将使用模拟模式（无判别意义）", file=sys.stderr)
     mapper = SpiMapper()
     try:
         mapper.prepare(chains)
@@ -107,16 +109,9 @@ def cmd_translate(args) -> int:
     from .factor_chains import load_factor_chains, all_factor_chains
 
     chains = load_factor_chains()
-    scorer = FactorScorer(rounds=1)
-    if scorer.simulated:
-        print("[error] 翻译需要 DEEPSEEK_API_KEY（环境变量或 .env），当前未配置", file=sys.stderr)
-        return 1
-
-    import time
-    from openai import OpenAI
-
-    client = OpenAI(api_key=scorer.api_key, base_url=scorer.base_url, timeout=60)
-    bilingual: dict = {}
+    scorer = FactorScorer(rounds=1)  # 无 key 时 FactorScorer 直接报错退出 1
+    from . import llm_common
+    bilingual = {}
     total = len(all_factor_chains(chains))
     for i, chain in enumerate(all_factor_chains(chains), 1):
         print(f"  [{i}/{total}] 翻译 {chain.factor} ...", flush=True)
@@ -127,23 +122,15 @@ def cmd_translate(args) -> int:
             "输出严格 JSON: {\"factor_zh\": \"中文因子名\", \"adjectives_zh\": [\"...\"], "
             "\"synonyms_zh\": [...], \"verbs_zh\": [...], \"nouns_zh\": [...]}"
         )
-        for attempt in range(2):
-            try:
-                resp = client.chat.completions.create(
-                    model=scorer.model,
-                    temperature=0.2,
-                    response_format={"type": "json_object"},
-                    messages=[
-                        {"role": "system", "content": "你是人格心理学术语翻译专家，只输出 JSON。"},
-                        {"role": "user", "content": prompt},
-                    ],
-                )
-                data = json.loads(resp.choices[0].message.content or "{}")
-                bilingual[f"{chain.model_id}:{chain.factor}"] = data
-                break
-            except Exception as e:
-                print(f"    retry: {e}")
-                time.sleep(2)
+        try:  # 退避重试在 chat_json 内
+            data = llm_common.chat_json(
+                scorer.client, dict(scorer.cfg, model=scorer.model),
+                [{"role": "system", "content": "你是人格心理学术语翻译专家，只输出 JSON。"},
+                 {"role": "user", "content": prompt}],
+                temperature=0.2, log_prefix=f"{chain.factor} ")
+            bilingual[f"{chain.model_id}:{chain.factor}"] = data
+        except Exception as e:  # noqa: BLE001
+            print(f"    [warn] {chain.factor} 翻译失败: {e}", file=sys.stderr)
 
     out = PROJECT_ROOT / "assets" / "bilingual_factor_chains.json"
     out.write_text(json.dumps(bilingual, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -161,7 +148,7 @@ def main() -> int:
     p.add_argument("--rounds", type=int, default=2)
     p.add_argument("--no-shuffle", action="store_true")
     p.add_argument("--spi-mode", choices=["llm", "local"], default="llm",
-                   help="SPI 聚类映射模式：llm=DeepSeek 判聚类（推荐，77.3% 一致性）；local=本地嵌入（离线）")
+                   help="SPI 聚类映射模式：llm=DeepSeek 判聚类（推荐，77.3%% 一致性）；local=本地嵌入（离线）")
     p.set_defaults(func=cmd_profile)
 
     p = sub.add_parser("spi", help="仅 SPI 聚类命中（默认 LLM 判聚类）")
