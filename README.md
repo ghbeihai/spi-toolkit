@@ -41,7 +41,8 @@ uv pip install -e .
 
 # 3. 本地 SPI 映射（必需，需要 sentence-transformers + 3072 维嵌入数据）
 uv pip install -e '.[spi-local]'
-# 3072 维嵌入数据（~879MB）必须下载到 assets/hf-3072/Embeddings_3072/，否则 SPI 因子映射跑不了。
+# 3072 维嵌入数据（~879MB）必须下载，否则 SPI 因子映射跑不了：
+# huggingface-cli download Wildertrek/personality-atlas-3072 --repo-type dataset --local-dir assets/hf-3072
 
 # 4. 生成中英双语因子链资产（提升中文打分质量，需要 key）
 spi-quant translate
