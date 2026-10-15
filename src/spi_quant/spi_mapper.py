@@ -90,7 +90,7 @@ class SpiMapper:
         if CACHE_PATH.exists() and not force_rebuild:
             cache = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
             self.factor_embeddings = [(m, f, e) for m, f, e in cache]
-            print(f"[spi] 因子链嵌入缓存命中: {len(self.factor_embeddings)} 条")
+            print(f"[spi] 因子链嵌入缓存命中: {len(self.factor_embeddings)} 条", file=sys.stderr)
             return
 
         encoder = self._get_encoder()
@@ -107,7 +107,7 @@ class SpiMapper:
         CACHE_PATH.write_text(
             json.dumps(self.factor_embeddings, ensure_ascii=False), encoding="utf-8"
         )
-        print(f"[spi] 因子链嵌入已计算并缓存: {len(self.factor_embeddings)} 条")
+        print(f"[spi] 因子链嵌入已计算并缓存: {len(self.factor_embeddings)} 条", file=sys.stderr)
 
     # ---------- 映射 ----------
     def map_text(
