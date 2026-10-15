@@ -93,7 +93,7 @@ def load_means(path: Path) -> dict:
     if "aggregate" in d:
         return {f: v["mean"] for f, v in d["aggregate"].items()}
     if "scores" in d:
-        return {f: v["score"] for f, v in d["scores"].items()}
+        return {f: v["score"] for f, v in d["scores"].items() if not v.get("failed")}
     raise ValueError(f"无法识别画像结构: {path}")
 
 

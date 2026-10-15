@@ -37,7 +37,7 @@ def extract_scores(path: Path) -> dict:
     if "aggregate" in data:
         return {f: v["mean"] for f, v in data["aggregate"].items()}
     if "scores" in data:
-        return {f: v["score"] for f, v in data["scores"].items()}
+        return {f: v["score"] for f, v in data["scores"].items() if not v.get("failed")}
     raise ValueError(f"无法识别画像结构: {path}")
 
 

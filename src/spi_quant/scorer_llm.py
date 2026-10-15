@@ -13,6 +13,7 @@ from __future__ import annotations
 import json
 import os
 import random
+import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -82,6 +83,7 @@ class FactorScore:
     evidence: List[str] = field(default_factory=list)
     confidence: float = 0.0
     simulated: bool = False
+    failed: bool = False  # 全部重试失败（score 无意义，下游应跳过）
 
     def to_dict(self) -> dict:
         return {
@@ -92,6 +94,7 @@ class FactorScore:
             "evidence": self.evidence,
             "confidence": round(self.confidence, 2),
             "simulated": self.simulated,
+            "failed": self.failed,
         }
 
 
@@ -182,7 +185,7 @@ class FactorScorer:
                         time.sleep(2)
 
         if not raw_scores:  # 全部失败
-            return FactorScore(model_id="", factor=factor_name, score=0.0, simulated=True)
+            return FactorScore(model_id="", factor=factor_name, score=0.0, simulated=False, failed=True)
 
         # evidence 去重、保序、截断
         seen: List[str] = []
