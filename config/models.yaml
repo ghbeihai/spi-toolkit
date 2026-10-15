@@ -1,0 +1,93 @@
+# SPI 六件套人格量化模型 —— 模型与因子清单
+# 资产来源：Wildertrek/survey（AGPL-3.0），论文 Table 10 "Research (max coverage)" 套餐 + SDT 补全
+# SCM = Social-Cognitive Model（班杜拉社会认知模型），非 Schwartz 价值观（STBV）
+# SDT = Self-Determination Theory（Deci & Ryan 自我决定论）：补全 C7 自我定向与自主，使覆盖 15/15
+
+project:
+  name: SPI 六件套人格量化模型
+  version: 1.0.0
+  atlas_repo: assets/survey
+  scale:
+    version: "1.0.0"
+    frozen: true
+    frozen_at: "2026-10-10"
+    basis: "论文 Table 10 max coverage 套餐（29 因子覆盖 14/15 聚类）+ SDT 三因子补全 C7（覆盖 15/15）；覆盖判定基于 6694 条聚类复现标注"
+    change_rule: "任何因子链、提示词、模型或轮次变更必须重跑基线验证（判别效度 11/11 + 重测 0.28 + SPI 一致性 77.3%）并记录于 README『尺子基线』，否则视为新版本"
+
+models:
+  - id: ocean
+    name: Big Five / OCEAN
+    category: Trait-Based
+    file: datasets/ocean.csv
+    factors:
+      - Agreeableness
+      - Conscientiousness
+      - Extraversion
+      - Neuroticism
+      - Openness
+
+  - id: mmpi
+    name: MMPI-2 (10 Clinical Scales)
+    category: Clinical/Health
+    file: datasets/mmpi.csv
+    factors:
+      - Depression
+      - Hypochondriasis
+      - Hypomania
+      - Hysteria
+      - Masculinity_Femininity
+      - Paranoia
+      - Psychasthenia
+      - Psychopathic_Deviate
+      - Schizophrenia
+      - Social_Introversion
+
+  - id: scm
+    name: Social-Cognitive Model (Bandura)
+    category: Cognitive/Learning
+    file: datasets/scm.csv
+    factors:
+      - Affective
+      - Behavior
+      - Cognition
+      - Environment
+      - Interpersonal
+
+  - id: dt4
+    name: Dark Tetrad
+    category: Narcissism/Dark
+    file: datasets/dt4.csv
+    factors:
+      - Machiavellianism
+      - Narcissism
+      - Psychopathy
+      - Sadism
+
+  - id: tki
+    name: Thomas-Kilmann Conflict Mode Instrument
+    category: Interpersonal/Conflict
+    file: datasets/tki.csv
+    factors:
+      - Accommodating
+      - Avoiding
+      - Collaborating
+      - Competing
+      - Compromising
+
+  - id: sdt
+    name: Self-Determination Theory (Deci & Ryan)
+    category: Motivation/Autonomy
+    file: datasets/sdt.csv
+    note: 2026-10-10 接入，补全 C7 自我定向与自主（Autonomy→C7×28，Competence→C7+C1，Relatedness→C0）
+    factors:
+      - Autonomy
+      - Competence
+      - Relatedness
+
+llm:
+  provider: deepseek
+  base_url: https://api.deepseek.com
+  model: deepseek-chat
+  rounds: 2
+  temperatures: [0.3, 0.7]
+  timeout_seconds: 60

@@ -1,0 +1,22 @@
+# 环境与密钥
+.env
+*.key
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+.pytest_cache/
+
+# 可重建资产（本地嵌入缓存）
+assets/local_factor_embeddings.json
+
+# 结果产物（保留示例可取消注释）
+# data/results/
+
+# 本地运行产物（用户自己的画像结果，不进仓库）
+data/results/
+
+# 大模型嵌入缓存（879M+，首次运行自动从 HuggingFace 下载）
+assets/hf-3072/

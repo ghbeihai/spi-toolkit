@@ -1,0 +1,11 @@
+{
+  "note": "判别效度样本：每个样本的 expect_high 因子在零样本打分中应 >= 4.5（1-7 标尺）",
+  "samples": [
+    {"file": "sample_high_extra_dominance.txt", "expect_high": ["Extraversion", "Competing"]},
+    {"file": "sample_high_neurotic_withdrawal.txt", "expect_high": ["Neuroticism", "Avoiding"]},
+    {"file": "sample_dark_manipulation.txt", "expect_high": ["Machiavellianism", "Psychopathy"]},
+    {"file": "sample_conscientious_analytic.txt", "expect_high": ["Conscientiousness", "Cognition"]},
+    {"file": "sample_agreeable_cooperative.txt", "expect_high": ["Agreeableness", "Collaborating"]},
+    {"file": "sample_depressed_flat.txt", "expect_high": ["Depression"]}
+  ]
+}

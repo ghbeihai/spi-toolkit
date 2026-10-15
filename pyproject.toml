@@ -1,0 +1,30 @@
+[project]
+name = "spi-quant"
+version = "0.1.0"
+description = "SPI 五件套人格量化模型：OCEAN+MMPI+SCM+DT4+TKI，LLM 零样本打分 + SPI 聚类映射"
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=1.30",
+    "pyyaml>=6.0",
+    "pydantic>=2.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+spi-local = [
+    "sentence-transformers>=2.7",
+    "pandas>=2.0",
+]
+
+[project.scripts]
+spi-quant = "spi_quant.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+include = ["spi_quant*"]
