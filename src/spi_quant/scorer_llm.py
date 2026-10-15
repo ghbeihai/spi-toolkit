@@ -11,10 +11,8 @@
 from __future__ import annotations
 
 import json
-import os
 import random
 import sys
-import time
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional
@@ -102,59 +100,51 @@ class FactorScorer:
     def __init__(
         self,
         api_key: Optional[str] = None,
-        base_url: str = "https://api.deepseek.com",
-        model: str = "deepseek-chat",
-        rounds: int = 2,
+        base_url: Optional[str] = None,
+        model: Optional[str] = None,
+        rounds: Optional[int] = None,
         temperatures: Optional[List[float]] = None,
-        timeout: int = 60,
+        timeout: Optional[int] = None,
     ):
-        self.api_key = api_key or self._resolve_key()
-        self.base_url = base_url
-        self.model = model
-        self.rounds = rounds
-        self.temperatures = temperatures or [0.3, 0.7]
-        self.timeout = timeout
-        if not self.api_key:
-            print("错误：未检测到 DEEPSEEK_API_KEY。\n"
-                  "请先 export DEEPSEEK_API_KEY=sk-... 或在 .env 文件中配置。",
-                  file=sys.stderr)
-            sys.exit(1)
+        """模型 / 温度 / 轮数 / 超时默认来自 config/models.yaml 的 llm 节；显式参数覆盖。"""
+        from . import llm_common
+        self._llm = llm_common
+        cfg = llm_common.load_llm_cfg(CONFIG_PATH, section="llm")
+        for k, v in (("base_url", base_url), ("model", model), ("timeout", timeout),
+                     ("temperatures", temperatures)):
+            if v is not None:
+                cfg[k] = v
+        self.cfg = cfg
+        self.base_url = cfg["base_url"]
+        self.model = cfg["model"]
+        self.rounds = int(rounds if rounds is not None else cfg.get("rounds", 2))
+        self.temperatures = list(cfg.get("temperatures") or [0.3, 0.7])
+        if self.rounds < 1:
+            raise ValueError("rounds 必须 ≥1")
+        if self.rounds > len(self.temperatures):  # 轮数多于温度表：循环使用
+            self.temperatures = [self.temperatures[i % len(self.temperatures)] for i in range(self.rounds)]
+        self.timeout = cfg["timeout"]
+        self.api_key = api_key or llm_common.require_key(PROJECT_ROOT)  # 无 key → 报错退出 1
         self.simulated = False
-        from openai import OpenAI
-        self.client = OpenAI(api_key=self.api_key, base_url=base_url, timeout=timeout)
+        self.client = llm_common.make_client(self.api_key, cfg)
 
     @staticmethod
     def _resolve_key() -> Optional[str]:
-        """优先环境变量，其次项目 .env。"""
-        key = os.environ.get("DEEPSEEK_API_KEY")
-        if key:
-            return key
-        env_path = PROJECT_ROOT / ".env"
-        if env_path.exists():
-            try:
-                from dotenv import dotenv_values
-                return dotenv_values(env_path).get("DEEPSEEK_API_KEY") or None
-            except Exception:
-                pass
-        return None
+        """兼容旧接口：统一走 llm_common.load_key（env → WENBI_ENV_FILE → 项目 .env → 兄弟仓 .env）。"""
+        from . import llm_common
+        return llm_common.load_key(PROJECT_ROOT)[0]
 
     # ---------- 核心调用 ----------
     def _call_once(self, factor_definition: str, factor_name: str, text: str, temperature: float) -> dict:
+        """单次调用；429/5xx/超时/截断/JSON 解析失败由 llm_common.chat_json 指数退避重试。"""
         user = (
             f"【人格因子定义】\n因子名称：{factor_name}\n{factor_definition}\n\n"
             f"【待分析文本】\n{text}\n\n请按系统要求输出 JSON。"
         )
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            temperature=temperature,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": _SYSTEM_PROMPT},
-                {"role": "user", "content": user},
-            ],
-        )
-        content = resp.choices[0].message.content or ""
-        return json.loads(content)
+        return self._llm.chat_json(
+            self.client, self.cfg,
+            [{"role": "system", "content": _SYSTEM_PROMPT}, {"role": "user", "content": user}],
+            temperature=temperature, log_prefix=f"{factor_name} t={temperature} ")
 
     def score_factor(self, factor_definition: str, factor_name: str, text: str) -> FactorScore:
         """对一个因子做双轮评分（每轮独立调用，取平均）。"""
@@ -166,23 +156,18 @@ class FactorScorer:
         confidences: List[float] = []
 
         for t in self.temperatures[: self.rounds]:
-            for attempt in range(2):  # 解析失败重试一次
-                try:
-                    data = self._call_once(factor_definition, factor_name, text, t)
-                    score = int(data["score"])
-                    if not (1 <= score <= 7):
-                        raise ValueError(f"score 越界: {score}")
-                    raw_scores.append(score)
-                    ev = data.get("evidence", [])
-                    all_evidence.extend(str(e) for e in ev if str(e).strip())
-                    confidences.append(float(data.get("confidence", 0.5)))
-                    break
-                except Exception as e:
-                    if attempt == 1:
-                        print(f"  [warn] {factor_name} 第 {len(raw_scores)+1} 轮失败: {e}")
-                        time.sleep(1)
-                    else:
-                        time.sleep(2)
+            try:  # 重试/退避在 chat_json 内完成
+                data = self._call_once(factor_definition, factor_name, text, t)
+                score = int(data["score"])
+                if not (1 <= score <= 7):
+                    raise ValueError(f"score 越界: {score}")
+            except Exception as e:  # noqa: BLE001
+                print(f"  [warn] {factor_name} t={t} 失败: {e}", file=sys.stderr)
+                continue
+            raw_scores.append(score)
+            ev = data.get("evidence", [])
+            all_evidence.extend(str(e) for e in ev if str(e).strip())
+            confidences.append(float(data.get("confidence", 0.5)))
 
         if not raw_scores:  # 全部失败
             return FactorScore(model_id="", factor=factor_name, score=0.0, simulated=False, failed=True)
@@ -266,20 +251,20 @@ class FactorScorer:
         all_evidence: List[str] = []
         confidences: List[float] = []
         for t in self.temperatures[: self.rounds]:
-            for attempt in range(2):
-                try:
-                    data = self._call_once(definition, chain.factor, text, t)
-                    score = int(data["score"])
-                    if 1 <= score <= 7:
-                        raw_scores.append(score)
-                        ev = data.get("evidence", [])
-                        all_evidence.extend(str(e) for e in ev if str(e).strip())
-                        confidences.append(float(data.get("confidence", 0.5)))
-                        break
-                except Exception:
-                    time.sleep(1.5)
-        if not raw_scores:
-            return FactorScore(model_id="", factor=chain.factor, score=0.0, simulated=True)
+            try:  # 重试/退避在 chat_json 内完成
+                data = self._call_once(definition, chain.factor, text, t)
+                score = int(data["score"])
+                if not (1 <= score <= 7):
+                    raise ValueError(f"score 越界: {score}")
+            except Exception as e:  # noqa: BLE001
+                print(f"  [warn] {chain.factor} t={t} 失败: {e}", file=sys.stderr)
+                continue
+            raw_scores.append(score)
+            ev = data.get("evidence", [])
+            all_evidence.extend(str(e) for e in ev if str(e).strip())
+            confidences.append(float(data.get("confidence", 0.5)))
+        if not raw_scores:  # 全部失败：标 failed（原实现误标为 simulated）
+            return FactorScore(model_id="", factor=chain.factor, score=0.0, simulated=False, failed=True)
         seen: List[str] = []
         for e in all_evidence:
             if e not in seen and len(seen) < 3:
