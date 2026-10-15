@@ -21,7 +21,7 @@ sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 EMB_DIR = PROJECT_ROOT / "assets" / "survey" / "Embeddings"
 SPI_TABLE = PROJECT_ROOT / "assets" / "survey" / "results" / "spi_table.json"
-OUT = PROJECT_ROOT / "assets" / "spi_item_clusters.json"
+OUT = PROJECT_ROOT / "assets" / "spi_cluster_all.json"
 
 MODEL_LIST = sorted([
     "aam", "bdi", "bt", "cest", "cmoa", "cs", "disc", "dt4", "dtm", "em",
