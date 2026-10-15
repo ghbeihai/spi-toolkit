@@ -39,9 +39,9 @@ cp .env.example .env   # 填入 DEEPSEEK_API_KEY
 # 2. 安装依赖（核心）
 uv pip install -e .
 
-# 3. 本地 SPI 映射（必需，需要 sentence-transformers + 3072 维嵌入数据）
+# 3. （可选）本地离线 SPI 映射：默认的 LLM 判聚类模式不需要这一步
 uv pip install -e '.[spi-local]'
-# 3072 维嵌入数据（~879MB）必须下载，否则 SPI 因子映射跑不了：
+# local 模式需下载 3072 维嵌入数据（~879MB）：
 # huggingface-cli download Wildertrek/personality-atlas-3072 --repo-type dataset --local-dir assets/hf-3072
 
 # 4. 生成中英双语因子链资产（提升中文打分质量，需要 key）
@@ -58,6 +58,13 @@ spi-quant eval --out data/results
 ```
 
 或直接跑端到端 demo：`python scripts/demo.py`
+
+# 8. 多篇汇总为被测人画像（每篇取前 5 聚类；avg_relevance 为 1-7 原始契合度均值）
+python scripts/aggregate_spi_profiles.py data/results/<作者>_profiles --out spi_cluster_all.json
+
+LLM 配置：`config/models.yaml` 的 `llm:` 节（model / temperatures / rounds / timeout_seconds，可加 max_retries / backoff_base / max_text_chars）；
+429/5xx/截断自动指数退避重试；输入超 `max_text_chars`（默认 6000）会截断并在结果里标 `truncated: true`；
+key 查找顺序：`DEEPSEEK_API_KEY` → `$WENBI_ENV_FILE` → 项目 `.env` → 兄弟仓 `.env`；`WENBI_MOCK_LLM=1` 离线假客户端（测试用）。
 
 ## 目录结构
 
