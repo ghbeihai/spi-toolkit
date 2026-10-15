@@ -195,7 +195,7 @@ class SpiMapperLLM:
 
     def prepare(self, chains_by_model=None, force_rebuild: bool = False) -> None:
         """接口兼容：LLM 模式无需嵌入，仅加载 15 聚类定义。"""
-        print(f"[spi] LLM 判聚类模式（{self.model}），已加载 {len(self.clusters)} 个聚类定义")
+        print(f"[spi] LLM 判聚类模式（{self.model}），已加载 {len(self.clusters)} 个聚类定义", file=sys.stderr)
 
     # ---------- 映射 ----------
     def map_text(
