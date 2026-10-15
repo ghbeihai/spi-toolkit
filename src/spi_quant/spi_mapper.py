@@ -17,6 +17,7 @@ from __future__ import annotations
 import csv
 import json
 import os
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -172,22 +173,17 @@ class SpiMapperLLM:
         temperature: float = 0.0,
         timeout: int = 90,
     ):
-        api_key = os.environ.get("DEEPSEEK_API_KEY", "")
-        if not api_key:
-            try:
-                from dotenv import dotenv_values
-            except ImportError:  # pragma: no cover
-                dotenv_values = None
-            if dotenv_values is not None:
-                env = dotenv_values(PROJECT_ROOT / ".env")
-                api_key = env.get("DEEPSEEK_API_KEY") or ""
+        from . import llm_common
+        self._llm = llm_common
+        self.cfg = llm_common.load_llm_cfg(PROJECT_ROOT / "config" / "models.yaml", section="llm")
+        self.cfg["timeout"] = timeout
+        self.cfg["model"] = model
+        api_key = "mock" if os.environ.get("WENBI_MOCK_LLM") else llm_common.load_key(PROJECT_ROOT)[0]
         if not api_key:
             raise RuntimeError(
-                "LLM 判聚类模式需要 DEEPSEEK_API_KEY（环境变量或项目 .env 中配置）"
+                "LLM 判聚类模式需要 DEEPSEEK_API_KEY（环境变量 / $WENBI_ENV_FILE / 项目 .env）"
             )
-        from openai import OpenAI
-
-        self.client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com", timeout=timeout)
+        self.client = llm_common.make_client(api_key, self.cfg)
         self.model = model
         self.temperature = temperature
         self.clusters = self._load_clusters()
@@ -212,6 +208,8 @@ class SpiMapperLLM:
         """
         names = cluster_names or SPI_CLUSTER_NAMES
         desc = self._cluster_desc()
+        full_len = len(text)
+        text, truncated = self._llm.truncate(text, self.cfg, label="[spi] ")
         user = (
             "你是心理学人格维度聚类分类器。以下 15 个聚类是对人格模型语义空间的划分：\n"
             f"{desc}\n\n"
@@ -220,21 +218,22 @@ class SpiMapperLLM:
             "只列出契合度明确（relevance >= 4）的聚类，最多 5 个。\n"
             '输出严格 JSON：{"hits": [{"cluster_id": <数字>, "relevance": <1-7>, '
             '"reason": "<一句话依据>"}]}\n\n'
-            f"文字：{text[:6000]}"
+            f"文字：{text}"
         )
-        resp = self.client.chat.completions.create(
-            model=self.model,
-            temperature=self.temperature,
-            response_format={"type": "json_object"},
-            messages=[
-                {
-                    "role": "system",
-                    "content": "你是严谨的人格心理学聚类分类器。基于文本语义判断，输出严格 JSON。",
-                },
-                {"role": "user", "content": user},
-            ],
-        )
-        data = json.loads(resp.choices[0].message.content or "{}")
+        try:  # 429/5xx/超时/截断/JSON 失败指数退避重试
+            data = self._llm.chat_json(
+                self.client, self.cfg,
+                [
+                    {"role": "system",
+                     "content": "你是严谨的人格心理学聚类分类器。基于文本语义判断，输出严格 JSON。"},
+                    {"role": "user", "content": user},
+                ],
+                temperature=self.temperature, log_prefix="[spi] ")
+        except Exception as e:  # noqa: BLE001 —— 失败显式标记，而不是让整个 profile 崩掉
+            print(f"[warn] SPI 判聚类失败：{type(e).__name__}: {str(e)[:120]}", file=sys.stderr)
+            return {"text_len": full_len, "mode": "llm", "model": self.model, "failed": True,
+                    "error": f"{type(e).__name__}: {str(e)[:200]}", "truncated": truncated,
+                    "top_factors": [], "top_clusters": [], "cluster_hits": {}, "cluster_names": {}}
         hits = data.get("hits", []) or []
 
         label_by_id = {c["id"]: c["label"] for c in self.clusters}
@@ -281,7 +280,9 @@ class SpiMapperLLM:
         ]
 
         return {
-            "text_len": len(text),
+            "text_len": full_len,
+            "truncated": truncated,
+            "failed": False,
             "mode": "llm",
             "model": self.model,
             "top_factors": top_factors,
