@@ -33,6 +33,8 @@ MODEL_LIST = sorted([
 
 
 def main() -> int:
+    import argparse
+    argparse.ArgumentParser(description=f"复现论文 SPI 聚类（KMeans）→ 写出 {OUT}").parse_args()
     metas: list[dict] = []
     embs: list[np.ndarray] = []
     for model in MODEL_LIST:

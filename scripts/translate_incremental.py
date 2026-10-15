@@ -20,6 +20,8 @@ BILINGUAL_PATH = PROJECT_ROOT / "assets" / "bilingual_factor_chains.json"
 
 
 def main() -> int:
+    import argparse
+    argparse.ArgumentParser(description="增量翻译因子链（需 DEEPSEEK_API_KEY，结果写入双语表）").parse_args()
     chains = load_factor_chains()
     scorer = FactorScorer(rounds=1)
     if scorer.simulated:
