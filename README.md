@@ -20,6 +20,16 @@ Table 10 "Research (max coverage)" 套餐 + **SDT 补全**构建的人格量化�
 - **基线指标**：schema 合法率 100% · 判别效度 11/11 · 重测稳定性 0.28 · SPI 聚类一致性 77.3% · 15 聚类覆盖 15/15；
 - **变更规则**：任何因子链、提示词、模型、轮次或聚类的变更 = 新版本，必须重跑全部基线验证并在此记录；审计入口 `python scripts/audit_scale.py`（输出 `data/results/scale_audit.json`，含资产指纹）。
 
+## 首次使用：克隆上游 Personality Atlas
+
+SPI 的因子链映射依赖 Personality Atlas 项目（1.1G，AGPL-3.0），本仓库不内嵌。
+```bash
+cd assets
+git clone https://github.com/Wildertrek/survey.git
+```
+
+完成后 assets/survey/ 目录结构应包含 atlas/、data/、Embeddings/、results/spi_table.json。
+
 ## 快速开始
 
 ```bash
@@ -31,6 +41,7 @@ uv pip install -e .
 
 # 3. 本地 SPI 映射（可选，离线嵌入模式，需要 sentence-transformers）
 uv pip install -e '.[spi-local]'
+# 注：assets/hf-3072/（879MB 3072维嵌入）是开发期对照实验用，正常打分流程不需要。
 
 # 4. 生成中英双语因子链资产（提升中文打分质量，需要 key）
 spi-quant translate

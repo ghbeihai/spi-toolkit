@@ -111,11 +111,14 @@ class FactorScorer:
         self.rounds = rounds
         self.temperatures = temperatures or [0.3, 0.7]
         self.timeout = timeout
-        self.client = None
-        self.simulated = not self.api_key
-        if not self.simulated:
-            from openai import OpenAI
-            self.client = OpenAI(api_key=self.api_key, base_url=base_url, timeout=timeout)
+        if not self.api_key:
+            print("错误：未检测到 DEEPSEEK_API_KEY。\n"
+                  "请先 export DEEPSEEK_API_KEY=sk-... 或在 .env 文件中配置。",
+                  file=sys.stderr)
+            sys.exit(1)
+        self.simulated = False
+        from openai import OpenAI
+        self.client = OpenAI(api_key=self.api_key, base_url=base_url, timeout=timeout)
 
     @staticmethod
     def _resolve_key() -> Optional[str]:

@@ -20,3 +20,6 @@ data/results/
 
 # 大模型嵌入缓存（879M+，首次运行自动从 HuggingFace 下载）
 assets/hf-3072/
+
+# Personality Atlas 上游项目（1.1G+，首次使用自行 clone 到 assets/survey/）
+assets/survey/
