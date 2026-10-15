@@ -3,11 +3,11 @@
 """
 SPI 被测人画像汇总：从逐篇 spi-quant profile 结果汇总出 cluster_summary。
 
-输入：spi-quant profile 产出的逐篇 JSON 目录
-输出：spi_cluster_all.json（build_persona_generic.py 可读的 cluster_summary 结构）
+输入结构（spi-quant profile 产出）：
+  {"spi": {"cluster_hits": {"C1": 0.95, ...}, "cluster_names": {"C1": "情感温暖", ...}, "top_factors": [...]}}
 
-用法：
-  python3 aggregate_spi_profiles.py <profiles_dir> --out spi_cluster_all.json
+输出结构：
+  {"cluster_summary": [{"cluster": "C1", "label": "情感温暖", "n_first": 5, "n_top5": 12, "avg_relevance": 0.85}, ...]}
 """
 import argparse
 import json
@@ -27,8 +27,8 @@ def main():
         print(f"错误：目录不存在 {profiles_dir}", file=sys.stderr)
         sys.exit(1)
 
-    # 按 cluster → {n_first, n_top5, total_relevance} 汇总
-    cluster_stats = defaultdict(lambda: {"n_first": 0, "n_top5": 0, "total_relevance": 0.0, "n_docs": 0})
+    cluster_stats = defaultdict(lambda: {"n_first": 0, "n_top5": 0, "total_relevance": 0.0, "label": ""})
+    n_docs = 0
 
     files = list(profiles_dir.glob("*.json"))
     if not files:
@@ -43,46 +43,32 @@ def main():
             continue
 
         spi = data.get("spi", {})
-        if not spi:
+        cluster_hits = spi.get("cluster_hits", {})
+        cluster_names = spi.get("cluster_names", {})
+
+        if not cluster_hits:
             continue
+        n_docs += 1
 
-        cluster_hits = spi.get("cluster_hits", [])
-        cluster_names = spi.get("cluster_names", [])
-        top_factors = spi.get("top_factors", [])
+        for i, (cid, weight) in enumerate(cluster_hits.items()):
+            cluster_stats[cid]["n_top5"] += 1
+            cluster_stats[cid]["total_relevance"] += weight
+            if i == 0:
+                cluster_stats[cid]["n_first"] += 1
+            if not cluster_stats[cid]["label"] and cid in cluster_names:
+                cluster_stats[cid]["label"] = cluster_names[cid]
 
-        cluster_stats["_n_docs"]["n_docs"] += 1
-
-        # 统计每篇的 top1 命中
-        if cluster_hits:
-            for i, hit in enumerate(cluster_hits):
-                cluster_id = hit.get("cluster", f"C{i}") if isinstance(hit, dict) else str(hit)
-                label = hit.get("label", "") if isinstance(hit, dict) else ""
-                relevance = hit.get("relevance", 0) if isinstance(hit, dict) else 0
-
-                cluster_stats[cluster_id]["n_top5"] += 1
-                cluster_stats[cluster_id]["total_relevance"] += relevance
-                if i == 0:
-                    cluster_stats[cluster_id]["n_first"] += 1
-                if label and not cluster_stats[cluster_id].get("label"):
-                    cluster_stats[cluster_id]["label"] = label
-
-    n_docs = cluster_stats["_n_docs"]["n_docs"]
-
-    # 生成 cluster_summary
     cluster_summary = []
-    for cluster_id, stats in cluster_stats.items():
-        if cluster_id == "_n_docs":
-            continue
+    for cid, stats in cluster_stats.items():
         n_top5 = stats["n_top5"]
         cluster_summary.append({
-            "cluster": cluster_id,
-            "label": stats.get("label", cluster_id),
+            "cluster": cid,
+            "label": stats["label"] or cid,
             "n_first": stats["n_first"],
             "n_top5": n_top5,
             "avg_relevance": round(stats["total_relevance"] / max(n_top5, 1), 3),
         })
 
-    # 按 n_first 降序
     cluster_summary.sort(key=lambda x: -x["n_first"])
 
     result = {
@@ -95,7 +81,7 @@ def main():
     out_path.write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"汇总完成：{n_docs} 篇 → {len(cluster_summary)} 个聚类 → {out_path}")
     for cs in cluster_summary[:5]:
-        print(f"  {cs['label']}: first={cs['n_first']}, top5={cs['n_top5']}")
+        print(f"  {cs['label']}: first={cs['n_first']}, top5={cs['n_top5']}, rel={cs['avg_relevance']}")
 
 
 if __name__ == "__main__":
