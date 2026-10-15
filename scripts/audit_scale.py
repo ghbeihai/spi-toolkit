@@ -22,7 +22,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT / "src"))
 
 from spi_quant.factor_chains import load_factor_chains, all_factor_chains
-from spi_quant.scorer_llm import load_scale_info, CONFIG_PATH
+from spi_quant.scorer_llm import load_scale_info
 
 BILINGUAL_PATH = PROJECT_ROOT / "assets" / "bilingual_factor_chains.json"
 ITEMS_PATH = PROJECT_ROOT / "assets" / "spi_item_clusters.json"

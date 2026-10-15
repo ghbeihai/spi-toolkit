@@ -7,10 +7,9 @@ from __future__ import annotations
 import json
 import statistics
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from .factor_chains import load_factor_chains
-from .scorer_llm import FactorScorer, FactorScore, save_profile
+from .scorer_llm import FactorScorer, FactorScore
 from .spi_mapper import SpiMapper
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent

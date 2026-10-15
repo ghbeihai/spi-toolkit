@@ -276,7 +276,7 @@ def _radar_svg(mid: str, means: dict) -> str:
             return [nm[:4], nm[4:]]
         return [nm]
 
-    P = [f'<svg viewBox="0 0 460 300" width="100%" xmlns="http://www.w3.org/2000/svg">']
+    P = ['<svg viewBox="0 0 460 300" width="100%" xmlns="http://www.w3.org/2000/svg">']
     P.append(f'<text x="18" y="24" font-size="14" font-weight="bold" fill="#123f78">{_svg_esc(MODEL_ZH[mid])}</text>')
     for k in (0.33, 0.66, 1.0):
         P.append(f'<path d="{path_of(r * k)}" fill="none" stroke="#d5dee9" stroke-width="1.2"/>')

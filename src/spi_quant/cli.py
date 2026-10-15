@@ -14,7 +14,7 @@ import sys
 from pathlib import Path
 
 from .factor_chains import load_factor_chains, all_factor_chains
-from .scorer_llm import FactorScorer, save_profile, load_scale_info
+from .scorer_llm import FactorScorer, load_scale_info
 from .spi_mapper import SpiMapper, SpiMapperLLM
 from .persona import build_profile_summary, build_persona_prompt
 from .validate import run_full_eval
