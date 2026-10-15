@@ -2,15 +2,27 @@
 """通用段落式语料构建：\ufeff 分隔的自然段落（无编号）→ 按 >=MIN 字聚合成篇。
 用法: build_para_corpus.py <ATT路径> <OUT路径> <人名> [MIN字]"""
 from __future__ import annotations
-import json, sys
+import argparse
+import json
 from pathlib import Path
 
-ATT = Path(sys.argv[1])
-OUT = Path(sys.argv[2])
-NAME = sys.argv[3]
-MIN_LEN = int(sys.argv[4]) if len(sys.argv) > 4 else 700
+ATT = OUT = NAME = None
+MIN_LEN = 700
+
+
+def _parse_args():
+    global ATT, OUT, NAME, MIN_LEN
+    ap = argparse.ArgumentParser(description="段落式语料 → 按 >=MIN 字聚合成篇")
+    ap.add_argument("att", help="原始段落文本路径")
+    ap.add_argument("out", help="输出 JSON 路径")
+    ap.add_argument("name", help="人名")
+    ap.add_argument("min_len", nargs="?", type=int, default=700, help="每篇最少字数（默认 700）")
+    a = ap.parse_args()
+    ATT, OUT, NAME, MIN_LEN = Path(a.att), Path(a.out), a.name, a.min_len
+
 
 def main():
+    _parse_args()
     t = ATT.read_text(encoding="utf-8")
     t = t.replace("\ufeff", "\n").replace("\xa0", " ").replace("\u200b", "").replace("\u3000", " ")
     lines = [ln.strip() for ln in t.splitlines()]

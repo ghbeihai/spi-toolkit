@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """统计 29 因子在 6694 条聚类标注中的真实聚类分布。"""
+import argparse
 import json
 from collections import Counter
+from pathlib import Path
 
-items = json.load(open("assets/spi_item_clusters.json", encoding="utf-8"))
+argparse.ArgumentParser(description="统计 29 因子在 6694 条聚类标注中的真实聚类分布").parse_args()
+_ASSET = Path(__file__).resolve().parent.parent / "assets" / "spi_item_clusters.json"  # 不依赖 cwd
+items = json.load(open(_ASSET, encoding="utf-8"))
 F29 = {
     "Extraversion", "Agreeableness", "Conscientiousness", "Neuroticism", "Openness",
     "Depression", "Hypochondriasis", "Hysteria", "Psychopathic_Deviate",

@@ -8,9 +8,8 @@ LLM 输入：词元组合（因子/形容词/近义词/动词/名词）；输出
 """
 from __future__ import annotations
 
-import csv
-import glob
 import json
+import os
 import random
 import sys
 from pathlib import Path
@@ -85,11 +84,14 @@ def judge(client, text: str, cluster_desc: str) -> int | None:
 
 
 def main() -> int:
+    import argparse
+    argparse.ArgumentParser(description="LLM 零样本判 SPI 聚类 vs 论文 KMeans 标注一致性（需 DEEPSEEK_API_KEY）"
+                            ).parse_args()
     from openai import OpenAI
     from dotenv import dotenv_values
 
-    env = dotenv_values(PROJECT_ROOT / ".env")
-    key = env.get("DEEPSEEK_API_KEY") or ""
+    # 与其他脚本一致：优先环境变量，其次项目 .env
+    key = os.environ.get("DEEPSEEK_API_KEY") or dotenv_values(PROJECT_ROOT / ".env").get("DEEPSEEK_API_KEY") or ""
     if not key:
         print("[error] 缺少 DEEPSEEK_API_KEY")
         return 1

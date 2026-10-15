@@ -12,7 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
-from spi_quant.factor_chains import load_factor_chains, all_factor_chains
+from spi_quant.factor_chains import load_factor_chains
 from spi_quant.scorer_llm import FactorScorer
 from spi_quant.spi_mapper import SpiMapper, SpiMapperLLM
 from spi_quant.persona import build_profile_summary, build_persona_prompt
@@ -21,10 +21,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 def main() -> int:
-    sample = sys.argv[1] if len(sys.argv) > 1 else "data/samples/sample_high_extra_dominance.txt"
-    out = sys.argv[2] if len(sys.argv) > 2 else str(PROJECT_ROOT / "data" / "results" / "demo.json")
-
-    text = (PROJECT_ROOT / sample).read_text(encoding="utf-8").strip()
+    import argparse
+    ap = argparse.ArgumentParser(description="端到端 demo：文本 → 五件套画像 + SPI 聚类命中 + persona")
+    ap.add_argument("sample", nargs="?", default="data/samples/sample_high_extra_dominance.txt",
+                    help="样本文本（绝对路径或相对项目根）")
+    ap.add_argument("out", nargs="?", default=str(PROJECT_ROOT / "data" / "results" / "demo.json"))
+    a = ap.parse_args()
+    sample, out = a.sample, a.out
+    sp = Path(sample)
+    text = (sp if sp.is_absolute() else PROJECT_ROOT / sample).read_text(encoding="utf-8").strip()
     chains = load_factor_chains()
     scorer = FactorScorer()
 
