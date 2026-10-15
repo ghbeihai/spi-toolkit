@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -171,18 +172,18 @@ class SpiMapperLLM:
         temperature: float = 0.0,
         timeout: int = 90,
     ):
-        try:
-            from dotenv import dotenv_values
-        except ImportError:  # pragma: no cover
-            dotenv_values = None
-        if dotenv_values is not None:
-            env = dotenv_values(PROJECT_ROOT / ".env")
-            api_key = env.get("DEEPSEEK_API_KEY") or ""
-        else:
-            api_key = ""
+        api_key = os.environ.get("DEEPSEEK_API_KEY", "")
+        if not api_key:
+            try:
+                from dotenv import dotenv_values
+            except ImportError:  # pragma: no cover
+                dotenv_values = None
+            if dotenv_values is not None:
+                env = dotenv_values(PROJECT_ROOT / ".env")
+                api_key = env.get("DEEPSEEK_API_KEY") or ""
         if not api_key:
             raise RuntimeError(
-                "LLM 判聚类模式需要 DEEPSEEK_API_KEY（项目 .env 中配置）"
+                "LLM 判聚类模式需要 DEEPSEEK_API_KEY（环境变量或项目 .env 中配置）"
             )
         from openai import OpenAI
 
